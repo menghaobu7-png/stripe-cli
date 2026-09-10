@@ -59,7 +59,6 @@ type Profile struct {
 	LiveModePublishableKey string
 	TestModeAPIKey         string
 	TestModePublishableKey string
-	TerminalPOSDeviceID    string
 	DisplayName            string
 	AccountID              string
 	UserID                 string
@@ -531,15 +530,6 @@ func (p *Profile) GetDisplayName() string {
 	return ""
 }
 
-// GetTerminalPOSDeviceID returns the device id from the config for Terminal quickstart to use
-func (p *Profile) GetTerminalPOSDeviceID() string {
-	if err := viper.ReadInConfig(); err == nil {
-		return p.ReadProfileString("terminal_pos_device_id")
-	}
-
-	return ""
-}
-
 // GetConfigField returns the flat (v1) configuration path for a profile field,
 // e.g. "default.account_id".
 //
@@ -919,7 +909,7 @@ func SaveActiveContext(accountID string, livemode bool) error {
 	if err != nil {
 		return err
 	}
-	return KeyRing.Set(OAuthActiveContextKeychainKey, data, "Stripe CLI OAuth active context")
+	return KeyRing.Set(OAuthActiveContextKeychainKey, data, "Stripe CLI active context")
 }
 
 // SaveUATExpiresAt persists the UAT expiry time in the keyring.
@@ -927,7 +917,7 @@ func SaveUATExpiresAt(t time.Time) error {
 	if KeyRing == nil {
 		return nil
 	}
-	return KeyRing.Set(OAuthUATExpiresAtKeychainKey, []byte(t.UTC().Format(time.RFC3339)), "Stripe CLI OAuth token expiry")
+	return KeyRing.Set(OAuthUATExpiresAtKeychainKey, []byte(t.UTC().Format(time.RFC3339)), "Stripe CLI token expiry")
 }
 
 // GetUATExpiresAt retrieves the stored UAT expiry time from the keyring.
@@ -1011,9 +1001,9 @@ type ActiveContextLivemodeMismatchError struct {
 
 func (e *ActiveContextLivemodeMismatchError) Error() string {
 	if e.ActiveLivemode {
-		return "You're in live mode. Run 'stripe switch context' to select a sandbox."
+		return "You're in live mode. Run 'stripe switch' to select a sandbox."
 	}
-	return "You're in a sandbox. Run 'stripe switch context' to select a live account."
+	return "You're in a sandbox. Run 'stripe switch' to select a live account."
 }
 
 // ResolveCredentials returns the credentials for the given mode. If an OAK
