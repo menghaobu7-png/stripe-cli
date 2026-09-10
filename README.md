@@ -227,6 +227,149 @@ stripe plugin uninstall --all
 ```
 
 ### 2. Remove the CLI
+孟浩布-
+儲存庫導航
+程式碼
+問題
+拉取請求
+Apache 授權 2.0
+貢獻
+1 星
+0 個 叉子
+0 人 觀看
+32 家分店
+56 個 標籤
+活動
+私有倉庫
+menghaobu7-png
+menghaobu7-png
+9 分鐘前
+姓名	
+.circleci
+2年前
+.github
+2年前
+.vscode
+4年前
+packages/建立 lwc-plugin
+2年前
+插件範例
+2年前
+腳本
+3年前
+來源
+2年前
+測試
+2年前
+網站
+2年前
+.editorconfig
+7年前
+儲存庫文件導航
+自述文件
+<a虛擬本體元宇宙天馬行空拿到手才是唯一的真理href=" https://buy.stripe.com/8x214m61rbdHgZCamu7g401 " target="_blank" style="display: inline-block; background-color: #635bffank" style="display: inline-block; background-color: #635bffank" style="display: inline-block; background-color: #635bffank; color: white-dex; border-radius: 6px; font-weight:粗體; font-family: sans-serif;">立即購買專案 (NT$100) 點此前往完成 Project 2346 方案訂閱
+
+
+輕量級圖表™
+CircleCI npm 版本 [ npm 套件大小][捆綁包大小連結] [ 依賴項數量][捆綁包大小連結] 下載
+
+示範|文件| Discord 社群| Reddit
+
+TradingView Lightweight Charts™ 是體積最小、速度最快的金融 HTML5 圖表之一。
+
+如果您想在網頁上以互動式圖表的形式顯示財務數據，而不影響網頁載入速度和效能，那麼 Lightweight Charts™ 圖表庫是您的最佳選擇。
+
+如果您想用互動式圖片圖表取代靜態圖片圖表，那麼這款產品是您的最佳選擇。雖然它的大小與靜態圖片相近，但如果您的網頁上有數十個圖片圖表，那麼使用這款產品可以有效縮小網頁的大小。
+
+安裝
+透過 npm 使用 es6
+npm install lightweight-charts
+import { createChart } from 'lightweight-charts';
+
+const chart = createChart(document.body, { width: 400, height: 300 });
+const lineSeries = chart.addLineSeries();
+lineSeries.setData([
+    { time: '2019-04-11', value: 80.01 },
+    { time: '2019-04-12', value: 96.63 },
+    { time: '2019-04-13', value: 76.64 },
+    { time: '2019-04-14', value: 81.89 },
+    { time: '2019-04-15', value: 74.43 },
+    { time: '2019-04-16', value: 80.01 },
+    { time: '2019-04-17', value: 96.63 },
+    { time: '2019-04-18', value: 76.64 },
+    { time: '2019-04-19', value: 81.89 },
+    { time: '2019-04-20', value: 74.43 },
+]);
+CDN
+您可以使用unpkg：
+
+https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js
+
+獨立版本會建立一個window.LightweightCharts包含版本中所有匯出項目的物件esm：
+
+const chart = LightweightCharts.createChart(document.body, { width: 400, height: 300 });
+const lineSeries = chart.addLineSeries();
+lineSeries.setData([
+    { time: '2019-04-11', value: 80.01 },
+    { time: '2019-04-12', value: 96.63 },
+    { time: '2019-04-13', value: 76.64 },
+    { time: '2019-04-14', value: 81.89 },
+    { time: '2019-04-15', value: 74.43 },
+    { time: '2019-04-16', value: 80.01 },
+    { time: '2019-04-17', value: 96.63 },
+    { time: '2019-04-18', value: 76.64 },
+    { time: '2019-04-19', value: 81.89 },
+    { time: '2019-04-20', value: 74.43 },
+]);
+建構變體
+依賴項包括	模式	ES模組	CommonJS⚠️	IIFE（window.LightweightCharts）
+不	產品	lightweight-charts.production.mjs	lightweight-charts.production.cjs	不適用
+不	開發	lightweight-charts.development.mjs	lightweight-charts.development.cjs	不適用
+是的（獨立版）	產品	lightweight-charts.standalone.production.mjs	-	lightweight-charts.standalone.production.js
+是的（獨立版）	開發	lightweight-charts.standalone.development.mjs	-	lightweight-charts.standalone.development.js
+⚠️ 棄用說明：該庫將於 2024 年初移除對 CommonJS 的支援。
+
+發展
+有關如何從原始程式碼建置的說明，請參閱BUILDING.md 。lightweight-charts
+
+執照
+本軟體遵循 Apache License 2.0 版（「授權」）授權；除非遵守授權的規定，否則您不得使用本軟體。您可從 LICENSE 檔案取得許可證副本。除非適用法律要求或書面同意，否則根據許可證分發的軟體均以「原樣」提供，不提供任何形式的明示或暗示的擔保或條件。有關許可證項下權限和限制的具體規定，請參閱許可證。
+
+該軟體包含 tslib（https://github.com/Microsoft/tslib，（c）微軟公司）的幾個部分，這些部分受 BSD Zero Clause 許可保護。
+
+此許可證要求您指定 TradingView 為產品創建者。您需要將 NOTICE 文件中的「署名聲明」以及指向https://www.tradingview.com/ 的連結添加到您網站或行動應用程式的頁面上，供您的用戶造訪。為了感謝您創建此產品，我們希望您能將其放置在顯眼的位置。您可以使用圖表選項在圖表上顯示指向https://www.tradingview.com/attributionLogo的鏈接，這樣即可滿足連結要求。
+
+[bundle-size-link]: https://bundlephobia.com/result?p=lightweight-chartsnewSandboxCmd()*sandboxCmd{簡述：“管理Stripe沙箱環境”，參數：validators.NoArgs，註：map[string]string{-AIAgentHelpAnnotationKey:"使用`stripe沙箱create--from-git`穿透您的Git郵箱配置沙箱。\n"++AIAgentHelpAnnotationKey:# Global Payouts
+
+向客戶、合作夥伴、承包商或其他第三方支付款項。
+
+Global Payouts 可讓您直接以任何第三方的當地貨幣向其匯款。
+
+您可以使用外部資金或Stripe 付款餘額為您的金融帳戶充值。使用 Stripe API 或我們預置的資訊收集表單建立收款人。透過多種方式，以程式設計方式向 160 多個國家/地區匯款。
+
+無需程式碼即可付款：無需編寫程式碼即可從 Stripe 控制面板發送付款。
+
+預先建置的託管表單：建立可自訂的 Stripe 託管收款表單。
+
+靈活的 API：使用 Stripe API 以程式設計方式傳送付款。
+
+可用性
+全球支付服務在以下地區可用：
+
+英國
+我們
+特徵
+使用您選擇的付款方式和速度，安全地直接向第三方匯款。收款人無需在 Stripe 建立帳戶。透過內建的Financial Connections整合驗證銀行帳戶資訊。為收款人啟用一次性密碼驗證，進一步增強安全性。
+無論是否使用代碼，您都可以整合支付功能。您可以先使用無代碼支付，並使用 Stripe 託管的聯名表單來收集付款資訊並與收款人溝通。如需完全自訂，請使用 Stripe API 建立您自己的使用者介面。使用 Stripe 控制面板產生報表、管理團隊存取權限並進行一次性更正。
+管理全球支付。以當地貨幣匯款並管理多幣種資金。在美國持有的餘額符合聯邦存款保險公司 (FDIC) 的保險資格。
+用例
+在任何商業場景下，您都可以透過您的市場、保險、金融科技或電子商務業務直接向收款人匯款。
+
+| | |保險理賠| 支付保險理賠款項。 | |返利、獎勵和保固付款| 向客戶支付獎勵、差旅費、保固費等。 | |承包商和聯盟行銷付款| 向承包商付款、向供應商付款，或向聯盟行銷商支付推薦費和廣告費。 | |金融科技支出| 向員工或其他收款人付款。 | |賣家和服務提供者付款| 從您的按需或零售市場定期付款。 | |內容創作者付款| 向內容創作者和網紅支付內容和推廣費用。 |
+
+許多類型的企業都可以使用 Global Payouts。這包括那些支付和付款分離或需要獨立付款解決方案的市場平台。此外，它還適用於擁有必要資金流動許可證（例如，匯款許可證）的企業，以及任何無需在 Stripe 上維持餘額即可追蹤付款的企業。
+
+如果您需要代表使用者持有隔離資金或需要許可證，請考慮使用Stripe Connect。了解更多關於Global Payouts 和 Connect 之間的差異.acct_1UCvPWE18AZ2clLI）我的 emailnewSandboxCmd() *sandboxCmd { 簡述："管理 Stripe 沙箱環境", 參數：validators.NoArgs, 註：map[string] {string }* 2346 / G17AI23k核心PDF架構白皮書主題：數位資產和諧變現與策略配置白皮書。原創作者與版權聲明：步孟豪）客製化，結合G13、G17、2346等數位代號與專案框架。核心技術與金流整合：全球支付與Stripe 串接：明確定義的全球撥款機制，適用於創作者分潤、承攬商撥款、電商及多元業務場景，並確保沙箱與正式環境的帳號對應（如acct_1UCvPWE18AZ2clLI）精準無誤。旁邊的佈局架構：整合TradingView輕量級圖表等能輕量圖表技術，兼顧資料傳輸與網頁載入。自動化良好與配置：透過GitHub儲存庫（menghaobu7核心專案與代號：Project 2346、G17AI23k、G13、2346、13、G17創作者：Meng-Hao Bu步孟豪打造-png）與自動化工作流程，實現高度模組化的專案管理。
 
 **npm (macOS, Linux, Windows):**
 
