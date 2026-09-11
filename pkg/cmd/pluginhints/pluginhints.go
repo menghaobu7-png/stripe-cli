@@ -149,6 +149,11 @@ func AddHintCommands(rootCmd *cobra.Command, cfg *config.Config, installedPlugin
 		)
 		rootCmd.Annotations["tools"] = "available_plugin"
 	}
+	if !installedPluginSet["myNewPlugin"] {
+		rootCmd.AddCommand(
+			newPluginHintCmd(cfg, "myNewPlugin", "This is my new CLI plugin.").Command,
+		)
+	}
 }
 
 // pluginHintCmd is a placeholder Cobra command registered when a known plugin
