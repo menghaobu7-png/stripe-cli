@@ -1,78 +1,44 @@
-# Stripe CLI
+# fi# 通靈迪斯科-極限覺醒-步猛浩-Project-2346-G17AI23k-
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/stripe/stripe-cli)
-![Build Status](https://github.com/stripe/stripe-cli/actions/workflows/release.yml/badge.svg)
+> **「是非世事變幻，一心做自己。」**  
+> 在霓虹與死寂的交界處，重組最爛的秩序與最自由的程式碼。
 
-The Stripe CLI helps you build, test, and manage your Stripe integration right from the terminal.
+---
 
-**With the CLI, you can:**
+## 🌌 專案代碼與身份標記
 
-- Securely test webhooks without relying on 3rd party software
-- Trigger webhook events or resend events for easy testing
-- Tail your API request logs in real-time
-- Create, retrieve, update, or delete API objects.
+* **專案核心代碼**：`G17AI23K G13 2346 G17`
+* **全球總架構師**：步猛浩 (Meng-Hao Bu / 阿步)
+* **狀態**：測試網/主網數據持續同步中 🟢
 
-![demo](docs/demo.gif)
+---
 
-## Installation
+## ⚙️ 視覺基調與霓虹長廊架構 (The Neon Machinery Corridor)
 
-Stripe CLI is available for macOS, Windows, and Linux for distros like Ubuntu, Debian, RedHat and CentOS.
+本專案的核心視覺與程式架構，融入了極致的賽博龐克與工業廢墟美學：
 
-### macOS
+* **極致張力**：強調規模感與深度的失真，在破敗的底層邏輯中建立龐大的視覺結構。
+* **霓虹巨龍核心**：由深藍色、電光紫、螢光綠與熾熱洋紅交織而成的霓虹燈管，從機械廢墟中盤旋而起，如同一條有生命的能量流貫穿整座工業長廊。
+* **大氣與光影**：空氣中瀰漫著微塵與薄霧，使霓虹光束立體可見；地面上的積水反射著頭頂光影，創造出上下顛倒的迷幻空間。
+* **材質對比**：結合金屬的粗糙、厚重、生鏽與油污感，與發光的玻璃霓虹燈管形成強烈對比。
 
-Stripe CLI is available on macOS via [Homebrew](https://brew.sh/):
+---
 
-```sh
-brew install stripe/stripe-cli/stripe
-```
+## 🛠️ Stripe Checkout & Connect 串接模組
 
-### Linux
+本儲存庫內建完整的金流串接範例與測試介面，包含：
 
-Refer to the [installation instructions](https://stripe.com/docs/stripe-cli#install) for available Linux installation options.
+1. **即時日誌追蹤**：支援終端機即時監控 API 請求與事件。
+2. **Webhook 測試支援**：無需第三方複雜軟體即可安全測試事件。
+3. **安全防護**：內建 CSRF 憑證與環境變數管理。
 
-### Windows
+### 快速起步範例
 
-Stripe CLI is available on Windows via the [Scoop](https://scoop.sh/) package manager:
-
-```sh
-scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
-scoop install stripe
-```
-
-### Docker
-
-The CLI is also available as a Docker image: [`stripe/stripe-cli`](https://hub.docker.com/r/stripe/stripe-cli).
+確保於根目錄設定好 `.env` 後，可透過 Stripe CLI 進行本地端事件監聽：
 
 ```sh
-docker run --rm -it stripe/stripe-cli version
-stripe version x.y.z (beta)
-```
+stripe listen --forward-to localhost:4200/webhook
 
-**Password Store Setup with Docker**
-
-While test mode doesn’t require password store, you will need to set it up if you wish to perform live mode requests.
-
-> You can also make live mode requests on a per command basis by attaching the `--api-key` flag.
-
-1. Create `entrypoint.sh`
-
-```sh
-#!/bin/sh
-if ! [ -f ~/.gnupg/trustdb.gpg ] ; then
-  chmod 700 ~/.gnupg/
-  gpg --quick-generate-key stripe-live # This will generate a gpg key called "stripe-live"
-fi
-if ! [ -f ~/.password-store/.gpg-id ] ; then
-  pass init stripe-live # This will initialize a password store record named "stripe-live", using the gpg key above
-  pass insert stripe-live # This will insert value for the password store "stripe-live", which we will put Stripe Live Secret Key in
-fi
-
-string="$@"
-liveflag="--live"
-
-if [ -z "${string##*$liveflag*}" ] ;then
-  OPTS="--api-key $(pass show stripe-live)" # This will use the content of the password store "stripe-live" which was inserted in line 8
-fi
 
 #pass insert stripe-live
 /bin/stripe  $@ $OPTS
