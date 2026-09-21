@@ -1,0 +1,2119 @@
+# Stripe CLI
+
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/stripe/stripe-cli)
+![Build Status](https://github.com/stripe/stripe-cli/actions/workflows/release.yml/badge.svg)
+
+The Stripe CLI helps you build, test, and manage your Stripe integration right from the terminal.
+
+**With the CLI, you can:**
+
+- Securely test webhooks without relying on 3rd party software
+- Trigger webhook events or resend events for easy testing
+- Tail your API request logs in real-time
+- Create, retrieve, update, or delete API objects.
+
+![demo](docs/demo.gif)
+
+## Installation
+
+Stripe CLI is available for macOS, Windows, and Linux for distros like Ubuntu, Debian, RedHat and CentOS.
+
+### npm (macOS, Linux, Windows)
+
+If you have Node.js >= 18 installed, you can install via `npm`:
+
+```sh
+npm install -g @stripe/cli
+```
+
+You can also directly execute commands via `npx`, although this won't add `stripe` to your `PATH`:
+
+```sh
+npx @stripe/cli login
+```
+
+### macOS
+
+**Homebrew:**
+
+```sh
+brew install stripe
+```
+
+### Linux
+
+**apt (Debian, Ubuntu):**
+
+```sh
+curl -s https://packages.stripe.dev/api/security/keypair/stripe-cli-gpg/public | gpg --dearmor | sudo tee /usr/share/keyrings/stripe.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/stripe.gpg] https://packages.stripe.dev/stripe-cli-debian-local stable main" | sudo tee -a /etc/apt/sources.list.d/stripe.list
+sudo apt update
+sudo apt install stripe
+```
+
+**yum/dnf (RedHat, Fedora, CentOS):**
+
+```sh
+echo -e "[Stripe]\nname=stripe\nbaseurl=https://packages.stripe.dev/stripe-cli-rpm-local/\nenabled=1\ngpgcheck=0" | sudo tee -a /etc/yum.repos.d/stripe.repo
+sudo yum install stripe
+```
+
+### Windows
+
+**WinGet:**
+
+```sh
+winget install Stripe.StripeCLI
+```
+
+**Scoop:**
+
+```sh
+scoop bucket add stripe https://github.com/stripe/scoop-stripe-cli.git
+scoop install stripe
+```
+
+### Docker
+
+The CLI is also available as a Docker image: [`stripe/stripe-cli`](https://hub.docker.com/r/stripe/stripe-cli).
+
+```sh
+docker run --rm -it stripe/stripe-cli version
+stripe version x.y.z (beta)
+```
+
+**Password Store Setup with Docker**
+
+While test mode doesn’t require password store, you will need to set it up if you wish to perform live mode requests.
+
+> You can also make live mode requests on a per command basis by attaching the `--api-key` flag.
+
+1. Create `entrypoint.sh`
+
+```sh
+#!/bin/sh
+if ! [ -f ~/.gnupg/trustdb.gpg ] ; then
+  chmod 700 ~/.gnupg/
+  gpg --quick-generate-key stripe-live # This will generate a gpg key called "stripe-live"
+fi
+if ! [ -f ~/.password-store/.gpg-id ] ; then
+  pass init stripe-live # This will initialize a password store record named "stripe-live", using the gpg key above
+  pass insert stripe-live # This will insert value for the password store "stripe-live", which we will put Stripe Live Secret Key in
+fi
+
+string="$@"
+liveflag="--live"
+
+if [ -z "${string##*$liveflag*}" ] ;then
+  OPTS="--api-key $(pass show stripe-live)" # This will use the content of the password store "stripe-live" which was inserted in line 8
+fi
+
+#pass insert stripe-live
+/bin/stripe  $@ $OPTS
+```
+
+2. Create a docker file `Dockerfile-cli`
+
+```sh
+FROM  stripe/stripe-cli:vx.x.x
+RUN  apk  add  pass  gpg-agent
+COPY  ./entrypoint.sh  /entrypoint.sh
+ENTRYPOINT  [ "/entrypoint.sh" ]
+```
+
+3. Build the docker image
+
+```sh
+docker build -t stripe-cli -f Dockerfile-cli .
+```
+
+4. Run the docker image with password volumes, replacing `$command` with the appropraite Stripe CLI command (i.e `customers list`)
+
+```sh
+docker run --rm -it -v stripe-config://root/.config/stripe/ -v stripe-gpg://root/.gnupg/ -v stripe-pass://root/.password-store/ stripe-cli $command
+```
+
+> For live mode requests append `--live` after `$command`.
+
+### Without package managers
+
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/stripe/stripe-cli/releases/latest).
+
+**macOS:**
+
+```sh
+tar -xvf stripe_X.X.X_mac-os_ARCH.tar.gz
+```
+
+Optionally move the `stripe` binary to `/usr/local/bin` for global access.
+
+**Linux:**
+
+```sh
+tar -xvf stripe_X.X.X_linux_x86_64.tar.gz
+```
+
+Move the `stripe` binary to a directory on your `PATH`.
+
+**Windows:**
+
+Unzip `stripe_X.X.X_windows_x86_64.zip` and add the path containing `stripe.exe` to your `Path` environment variable.
+
+> **Note:** Anti-virus software may flag the binary as unsafe. This is a false positive; see [issue #692](https://github.com/stripe/stripe-cli/issues/692) for details.
+
+## Upgrading
+
+### npm (macOS, Linux, Windows)
+
+```sh
+npm install -g @stripe/cli
+```
+
+### macOS
+
+**Homebrew:**
+
+```sh
+brew upgrade stripe
+```
+
+### Linux
+
+**apt (Debian, Ubuntu):**
+
+```sh
+sudo apt update && sudo apt upgrade stripe
+```
+
+**yum/dnf (RedHat, Fedora, CentOS):**
+
+```sh
+yum update stripe
+```
+
+### Windows
+
+**WinGet:**
+
+```sh
+winget upgrade Stripe.StripeCLI
+```
+
+**Scoop:**
+
+```sh
+scoop update stripe
+```
+
+### Docker
+
+```sh
+docker pull stripe/stripe-cli:latest
+```
+Because Docker containers are ephemeral, the `stripe login` command isn't supported. Use the [`--api-key` flag](https://docs.stripe.com/cli/api_keys) instead.
+
+### Without package managers
+
+Download the latest release for your platform from the [GitHub Releases page](https://github.com/stripe/stripe-cli/releases/latest) and replace your existing binary.
+
+## Uninstalling
+
+### 1. Remove your plugins
+
+Package managers only remove the `stripe` binary; they leave installed plugins behind. Remove plugins first, while the `stripe` binary is still available:
+
+```sh
+stripe plugin uninstall --all
+```
+
+### 2. Remove the CLI
+
+**npm (macOS, Linux, Windows):**
+
+```sh
+npm uninstall -g @stripe/cli
+```
+
+**Homebrew (macOS):**
+
+```sh
+brew uninstall stripe
+```
+
+**apt (Debian, Ubuntu):**
+
+```sh
+sudo apt remove stripe
+```
+
+**yum/dnf (RedHat, Fedora, CentOS):**
+
+```sh
+sudo yum remove stripe
+```
+
+**WinGet (Windows):**
+
+```sh
+winget uninstall Stripe.StripeCLI
+```
+
+**Scoop (Windows):**
+
+```sh
+scoop uninstall stripe
+```
+
+**Docker:**
+
+```sh
+docker rmi stripe/stripe-cli
+```
+
+**Without package managers:**
+
+Delete the `stripe` binary you downloaded.
+
+### 3. Optionally remove configuration and credentials
+
+Uninstalling the CLI intentionally keeps your configuration, so reinstalling preserves your projects and settings. It is only removed if you remove it yourself:
+
+```sh
+# Clear stored credentials for every project you are logged into
+stripe logout --all
+
+# Remove all remaining CLI configuration
+rm -rf "${XDG_CONFIG_HOME:-$HOME/.config}/stripe"
+```
+
+## Usage
+
+Installing the CLI provides access to the `stripe` command.
+
+```sh-session
+stripe [command]
+
+# Run `--help` for detailed information about CLI commands
+stripe [command] help
+```
+
+## Commands
+
+The Stripe CLI supports a broad range of commands. Below are some of the most used ones:
+- [`login`](https://stripe.com/docs/cli/login)
+- [`listen`](https://stripe.com/docs/cli/listen)
+- [`trigger`](https://stripe.com/docs/cli/trigger)
+- [`logs tail`](https://stripe.com/docs/cli/logs/tail)
+- [`events resend`](https://stripe.com/docs/cli/events/resend)
+- [`config`](https://stripe.com/docs/cli/config)
+- [`open`](https://stripe.com/docs/cli/open)
+- [`get`, `post` & `delete` commands](https://stripe.com/docs/cli/get)
+- [`resource` commands](https://stripe.com/docs/cli/resources)
+
+## Documentation
+
+For a full reference, see the [CLI reference site](https://stripe.com/docs/cli)
+
+## Telemetry
+
+The Stripe CLI includes a telemetry feature that collects some usage data. See our [telemetry reference](https://stripe.com/docs/cli/telemetry) for details.
+
+## Feedback
+
+Got feedback for us? Please don't hesitate to tell us on [feedback](https://stri.pe/cli-feedback).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details on developing the Stripe CLI. All contributions are governed by the [code of conduct](CODE_OF_CONDUCT.md).
+
+## License
+Copyright (c) Stripe. All rights reserved.
+
+Licensed under the [Apache License 2.0 license](blob/master/LICENSE).
+# 🔒 Stripe Checkout & Customer Portal - Ruby/Sinatra
+
+**Enterprise-Grade Subscription Management System**
+
+企業級 Stripe 訂閱管理系統，具備完整的安全防護、CSRF 保護、Webhook 處理和生產就緒的架構。
+
+---
+
+## 📋 功能特性
+
+✅ **Stripe Checkout Integration** - 安全的結帳流程  
+✅ **Customer Billing Portal** - 用戶自助管理訂閱  
+✅ **CSRF Protection** - 所有表單請求驗證  
+✅ **Webhook Handling** - 訂閱生命週期事件處理  
+✅ **Production Ready** - 環境變數、錯誤處理、日誌記錄  
+✅ **API Key Security** - 金鑰絕不硬編碼  
+✅ **Error Tracking** - Sentry 集成支持  
+
+---
+
+## 🚀 快速開始
+
+### 1. Clone 倉庫
+```bash
+git clone https://github.com/menghaobu7-png/stripe-checkout-ruby.git
+cd stripe-checkout-ruby
+```
+
+### 2. 安裝依賴
+```bash
+bundle install
+```
+
+### 3. 配置環境變數
+```bash
+# 複製 .env.example 到 .env
+cp .env.example .env
+
+# 編輯 .env，填入你的 Stripe 金鑰
+# STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_PUBLISHABLE_KEY=pk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_test_...
+```
+
+### 4. 啟動服務
+```bash
+ruby server.rb
+```
+
+訪問 `http://localhost:4242/checkout.html`
+
+---
+
+## 🔐 安全配置
+
+### API 金鑰管理
+- ✅ 所有金鑰存儲在 `.env` 文件中
+- ✅ `.env` 在 `.gitignore` 中防止意外提交
+- ✅ 生產環境使用環境變數而非硬編碼
+
+### CSRF 保護
+- ✅ 所有 POST 請求需要有效的 CSRF 令牌
+- ✅ 令牌在 HTML 頁面中自動注入
+- ✅ 防止跨站請求偽造攻擊
+
+### 身份驗證
+- ✅ 服務器端驗證所有用戶請求
+- ✅ 用戶 ID 從認證會話中讀取（非 URL 參數）
+- ✅ 客戶 ID 從數據庫查詢（安全隔離）
+
+### Webhook 簽名驗證
+- ✅ 所有 Stripe Webhook 事件都驗證簽名
+- ✅ 無效簽名被拒絕（403）
+- ✅ 事件日誌完整記錄
+
+---
+
+## 📁 項目結構
+
+```
+.
+├── server.rb                 # 主應用 - Sinatra Web 服務器
+├── Gemfile                   # Ruby 依賴管理
+├── .env                      # 環境變數（私密 - 不提交到 Git）
+├── .env.example              # 環境變數模板
+├── .gitignore                # Git 忽略配置
+├── public/
+│   ├── checkout.html         # 結帳頁面
+│   ├── success.html          # 成功確認頁面
+│   ├── cancel.html           # 取消頁面
+│   ├── client.js             # 客戶端邏輯
+│   └── style.css             # 樣式表
+└── README.md                 # 此文件
+```
+
+---
+
+## 🔄 流程說明
+
+### 1. 結帳流程
+```
+用戶訪問 /checkout.html
+  ↓
+輸入 Email，提交表單
+  ↓
+POST /create-checkout-session
+  ├─ 驗證 CSRF 令牌
+  ├─ 驗證用戶身份
+  ├─ 按 lookup_key 查詢價格
+  ├─ 創建 Stripe Checkout Session
+  └─ 重定向到 Stripe 結帳頁面
+  ↓
+Stripe 託管結帳
+  ↓
+成功 → /success.html?session_id={CHECKOUT_SESSION_ID}
+取消 → /cancel.html
+```
+
+### 2. 客戶門戶流程
+```
+用戶在 /success.html
+  ↓
+client.js 加載會話信息
+  ↓
+用戶點擊「管理計費信息」
+  ↓
+POST /create-portal-session
+  ├─ 驗證 CSRF 令牌
+  ├─ 驗證用戶身份
+  ├─ 從數據庫查詢 Stripe Customer ID
+  ├─ 創建 Billing Portal Session
+  └─ 重定向到 Stripe 客戶門戶
+  ↓
+用戶可以：
+  ✓ 查看訂閱詳情
+  ✓ 更新支付方式
+  ✓ 管理計費地址
+  ✓ 取消訂閱
+```
+
+### 3. Webhook 流程
+```
+Stripe 發送事件 → POST /webhook
+  ↓
+驗證 Webhook 簽名
+  ↓
+根據事件類型處理：
+  ├─ customer.subscription.created    → 記錄新訂閱
+  ├─ customer.subscription.updated    → 更新訂閱狀態
+  ├─ customer.subscription.deleted    → 取消訂閱
+  ├─ charge.succeeded                 → 記錄成功支付
+  ├─ charge.failed                    → 記錄失敗支付
+  └─ ...
+  ↓
+更新你的數據庫
+  ↓
+返回 200 OK 確認
+```
+
+---
+
+## 🛠️ 後端 API 端點
+
+### POST /create-checkout-session
+創建 Stripe Checkout Session
+
+**請求參數：**
+```json
+{
+  "lookup_key": "starter_plan_hkd",
+  "email": "user@example.com",
+  "csrf": "token_value"
+}
+```
+
+**響應：**
+- 成功：重定向到 Stripe Checkout（303）
+- 失敗：JSON 錯誤信息（400）
+
+---
+
+### POST /create-portal-session
+創建 Stripe Billing Portal Session
+
+**請求參數：**
+```json
+{
+  "csrf": "token_value"
+}
+```
+
+**響應：**
+- 成功：重定向到 Stripe Billing Portal（303）
+- 失敗：JSON 錯誤信息（400）
+
+---
+
+### POST /webhook
+接收 Stripe Webhook 事件
+
+**Stripe 自動發送的事件：**
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `customer.subscription.trial_will_end`
+- `charge.succeeded`
+- `charge.failed`
+- 等等...
+
+**設置 Webhook：**
+1. 進入 [Stripe Dashboard](https://dashboard.stripe.com/webhooks)
+2. 點擊「Add endpoint」
+3. 輸入你的 Webhook URL：`https://yourdomain.com/webhook`
+4. 選擇要監聽的事件
+5. 複製 Webhook Secret 到 `.env`
+
+---
+
+## 📊 數據庫集成（TODO）
+
+當前代碼中有以下 TODO 標記的位置需要實現數據庫層：
+
+### 1. `store_checkout_session(checkout_session_id, user_id)`
+在結帳後保存會話映射
+
+```ruby
+# 例子 (使用 ActiveRecord):
+CheckoutSession.create(
+  stripe_session_id: checkout_session_id,
+  user_id: user_id,
+  created_at: Time.now
+)
+```
+
+### 2. `get_customer_id_for_user(user_id)`
+根據用戶 ID 查詢 Stripe Customer ID
+
+```ruby
+# 例子:
+user = User.find(user_id)
+user.stripe_customer_id
+```
+
+### 3. Webhook 事件處理
+在 `handle_subscription_created`, `handle_subscription_updated` 等函數中更新用戶訂閱狀態。
+
+---
+
+## 🧪 測試
+
+### 使用 Stripe Test Mode
+
+**測試卡號：**
+- 成功：`4242 4242 4242 4242`
+- 需要身份驗證：`4000 0025 0000 3155`
+- 失敗：`5555 5555 5555 4444`
+
+**測試 Webhook：**
+```bash
+# 使用 Stripe CLI
+stripe listen --forward-to localhost:4242/webhook
+
+# 觸發測試事件
+stripe trigger payment_intent.succeeded
+```
+
+---
+
+## 📝 環境變數說明
+
+| 變數 | 說明 | 必須 |
+|------|------|------|
+| `STRIPE_SECRET_KEY` | Stripe 密鑰 | ✓ |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe 公開金鑰 | ✓ |
+| `STRIPE_WEBHOOK_SECRET` | Webhook 密鑰 | ✓ |
+| `DOMAIN` | 應用域名 | ✓ |
+| `PORT` | 服務器端口 | 選 (默認 4242) |
+| `RACK_ENV` | 運行環境 | 選 (development/production) |
+| `SESSION_SECRET` | 會話加密密鑰 | 選 |
+| `DATABASE_URL` | 數據庫連接字符串 | 選 |
+| `SENTRY_DSN` | 錯誤追蹤 DSN | 選 |
+
+---
+
+## 🚨 生產部署檢查清單
+
+- [ ] 所有環境變數已配置
+- [ ] HTTPS 已啟用（非 HTTP）
+- [ ] STRIPE_SECRET_KEY 使用生產密鑰（`sk_live_`）
+- [ ] Webhook Secret 已更新為生產密鑰
+- [ ] 數據庫連接已配置
+- [ ] 錯誤追蹤 (Sentry) 已配置
+- [ ] 日誌系統已配置
+- [ ] CSRF 保護已驗證
+- [ ] 身份驗證系統已集成
+- [ ] Webhook endpoint 已配置在 Stripe Dashboard
+- [ ] 用戶認證路由已實現
+- [ ] 支付成功後的業務邏輯已實現
+- [ ] 負載測試已完成
+- [ ] 安全審計已完成
+
+---
+
+## 🐛 常見問題
+
+### Q: API 金鑰在哪裡找到？
+**A:** https://dashboard.stripe.com/apikeys
+
+### Q: Webhook Secret 在哪裡找到？
+**A:** https://dashboard.stripe.com/webhooks → 點擊你的 endpoint → 查看簽名密鑰
+
+### Q: 如何測試 Webhook？
+**A:** 使用 Stripe CLI：`stripe trigger <event_type>`
+
+### Q: 為什麼 Webhook 返回 403？
+**A:** 簽名驗證失敗。檢查 `.env` 中的 `STRIPE_WEBHOOK_SECRET` 是否正確。
+
+### Q: 如何在生產環境中從 URL 移除 session_id？
+**A:** 在 `client.js` 中實現 `/api/current-session` 端點，從認證會話中讀取。
+
+---
+
+## 📞 支援
+
+- **Stripe 文檔：** https://stripe.com/docs
+- **Stripe API 參考：** https://stripe.com/docs/api
+- **Sinatra 文檔：** http://sinatrarb.com/
+
+---
+
+## ⚖️ 授權與隱私
+
+**【專案權屬與機密隱私宣告】**
+
+本專案之所有程式碼、自動化架構、白皮書內容及相關數位資產，100% 絕對屬於 MENG-HAO BU（步孟豪）個人所有。任何協作者僅具備依指示進行技術執行與開發之輔助權限，不具備任何所有權、處分權或智慧財產權。
+
+所有涉及本專案之程式邏輯、架構設計及商業機密，協作者均負有絕對保密義務，不得擅自外流、重製或用於其他用途。
+
+---
+
+**Created with ❤️ by MENG-HAO BU**
+
+Last Updated: 2026-09-12 MB
+MENG-HAO BU
+INVESTMENT LAB
+
+
+MB
+模擬交易平台
+/
+MARKET OVERVIEW
+掌握市場，從容布局。
+歡迎來到 Meng-Hao Bu · Project 2346 模擬投資空間。
+
+市場寬度
+3 上漲
+/
+1 下跌
+
+P2346
+Project 2346
+₫234.60
++6.82%
++15.00
+成交量 8,420 萬
+市值 234.6 億
+
+G17AI23k
+G17 AI 23k
+₫17.23
++3.45%
++0.58
+成交量 3,180 萬
+市值 17.2 億
+
+G13
+G13 Growth
+₫13.13
+-1.28%
+-0.17
+成交量 1,940 萬
+市值 13.1 億
+
+2346
+已選取
+2346 Core
+₫46.23
++2.18%
++0.99
+成交量 2,460 萬
+市值 46.2 億
+P2
+2346
+SIM
+2346 Core · 模擬股票
+₫46.23
++2.18%今日
+1D
+1W
+1M
+1Y
+價格提醒
+即時模擬走勢
+09:00
+12:00
+15:00
+現在
+₫46.23
+開盤
+₫45.40
+最高
+₫48.08
+最低
+₫44.38
+下單面板
+模擬
+以即時風格價格進行虛擬交易
+
+
+買入
+賣出
+交易標的
+2346
+數量
+可用 800.11 股
+10
+股
+估計成交金額
+₫462.30
+確認買入（模擬）
+這是模擬交易功能。所有報價、資產與成交紀錄皆為虛擬資料，不涉及真實投資或資金。
+
+模擬帳戶總覽
+Demo portfolio · 虛擬資產
+
+
+總資產估值
+₫100,000.00
++0.00
+持倉未實現損益
+可用餘額
+₫36,989.20
+可用於模擬買入
+持倉市值
+₫63,010.80
+2 個模擬標的
+持倉損益
+依最新模擬價格估算
+
+
+
+P2
+2346
+1,160.00 股 · 均價 ₫46.23
+₫53,626.80
++0.00
+
+P2
+P2346
+40.00 股 · 均價 ₫234.60
+₫9,384.00
++0.00
+近期交易紀錄
+你的模擬下單活動會顯示在這裡
+
+搜尋紀錄
+標的
+方向
+數量
+成交價格
+時間
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+09/13 下午03:14
+2346
+2346 Core
+買入
+1,000.00 股
+₫46.23
+成交 ₫46,230.00
+09/07 上午11:59
+2346
+2346 Core
+買入
+100.00 股
+₫46.23
+成交 ₫4,623.00
+09/07 上午07:26
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/31 上午07:00
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/27 上午10:09
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/26 上午07:59
+P2346
+Project 2346
+買入
+10.00 股
+₫234.60
+成交 ₫2,346.00
+08/26 上午05:13
+P2346
+Project 2346
+賣出
+10.00 股
+₫234.60
+成交 ₫2,346.00
+08/26 上午04:24
+2346
+2346 Core
+賣出
+10.00 股
+₫46.23
+成交 ₫462.30
+08/26 上午04:17
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/26 上午12:16
+MENG-HAO BU · PROJECT 2346
+所有數據皆為模擬資料
+I am adding a Stripe Connect integration to my application. Please create a sample integration and add detailed code comments explaining each step. If a value needs to be filled in (like an API key), please mark it with a placeholder comment and provide a helpful error if the value is not present.
+
+The sample integration should onboard users to Connect, create products, and have a simple storefront for their customers to make purchases.
+
+For any UI, please use clean, simple HTML with basic styling. If relevant, use the current style of my application.
+
+The latest version of the Stripe API is `2026-08-26.dahlia` but this will be used automatically by the SDK.
+
+Use the latest version of the SDK package. You can find the latest version of the SDK package at https://github.com/stripe/stripe-$LANG/releases.
+
+Please set up flows for the following:
+
+## Use a "Stripe Client" for all requests
+
+Here are some common ways to create a Stripe Client:
+```js
+const stripeClient = new Stripe('sk_***')
+```
+
+```ruby
+stripeClient = Stripe::StripeClient.new("sk_***")
+```
+
+```python
+stripeClient = StripeClient("sk_***")
+```
+
+```php
+$stripeClient = new \Stripe\StripeClient(['api_key' => "sk_***"]);
+```
+
+```java
+StripeClient stripeClient = new StripeClient("sk_***");
+```
+
+```go
+stripeClient := stripe.NewClient("sk_***")
+```
+
+```dotnet
+var stripeClient = new StripeClient("sk_***");
+```
+
+use the `stripeClient` for all stripe related requests.
+
+The stripe version does not need to be set since it will be used automatically by the SDK.
+
+## Creating Connected Accounts
+When creating connected accounts, use the V2 API with the following properties:
+
+```js
+const account = await stripeClient.v2.core.accounts.create({
+  display_name: {From User},
+  contact_email: {From User},
+  identity: {
+    country: 'us',
+  },
+  dashboard: 'full',
+  defaults: {
+      responsibilities: {
+        fees_collector: 'stripe',
+        losses_collector: 'stripe',
+      },
+   },
+  configuration: {
+    customer: {},
+    merchant: {
+       capabilities: {
+         card_payments: {
+           requested: true,
+         },
+       },
+    },
+  },
+});
+```
+
+Only use the above properties when creating accounts. Never pass type at the top level. **Do not use top level type: 'express' or type: 'standard' or type 'custom'.**
+
+If there is a DB already setup, store a mapping from the user object to the account ID.
+
+The full V2 object can be seen at https://docs.stripe.com/api/v2/core/accounts/object
+
+## Onboarding Connected Accounts
+
+Onboard the connected accounts using Stripe Account Links.
+Please make a UI where the user can click "Onboard to collect payments" and also see the current status of onboarding. You should use the accounts API directly to get the status of the account. For this demo, always get the account status from the API directly (Do not store in a database).
+
+Use the V2 account links API to create an account link:
+
+```js
+const accountLink = await stripeClient.v2.core.accountLinks.create({
+  account: accountId,
+  use_case: {
+    type: 'account_onboarding',
+    account_onboarding: {
+      configurations: ['merchant', 'customer'],
+      refresh_url: 'https://example.com',
+      return_url: `https://example.com?accountId=${accountId}`,
+    },
+  },
+});
+```
+
+(This is just an example, code could be different depending on programming language.)
+```js
+const account = await stripeClient.v2.core.accounts.retrieve(stripeAccountId, {
+  include: ["configuration.merchant", "requirements"],
+});
+
+const readyToProcessPayments = account?.configuration
+?.merchant?.capabilities?.card_payments?.status === "active"
+const requirementsStatus =
+      account.requirements?.summary?.minimum_deadline?.status;const requirementsStatus =
+      account.requirements?.summary?.minimum_deadline?.status;
+const onboardingComplete = requirementsStatus !== "currently_due" && requirementsStatus !== "past_due";
+```
+
+## Listen for requirements changes on your connected account
+
+Account requirements can change, often due to changes implemented by financial regulators, card networks, and other financial institutions. To set up webhook notifications of requirement changes, create an event destination to listen for Account v2 update events.
+
+1. In your [Stripe Dashboard](https://dashboard.stripe.com), open the Developers menu by clicking **Developers** in the navigation menu footer, then select **Webhooks**.
+1. Click **+ Add destination**.
+1. In the Events from section, select **Connected accounts**.
+1. Select **Show advanced options**. In the Payload style section, select **Thin**.
+1. In the Events field, type “v2” to search for v2 event types. Select **v2.account[requirements].updated** and the **v2.account[configuration.configuration_type].capability_status_updated** type for each configuration type used by your connected accounts.
+
+Configure your application to respond to update events by collecting any updated requirements.
+
+
+Use the following docs to help  you parse 'thin' evevnts. You must use then events for V2 accounts: https://docs.stripe.com/webhooks.md?snapshot-or-thin=thin
+
+You can start a local listener by using the Stripe CLI: https://docs.stripe.com/cli/listen
+
+```bash
+stripe listen --thin-events 'v2.core.account[requirements].updated,v2.core.account[.recipient].capability_status_updated,v2.core.account[configuration.merchant].capability_status_updated,v2.core.account[configuration.customer].capability_status_updated' --forward-thin-to <YOUR_LOCAL_ENDPOINT>
+```
+### Sample code for parsing 'thin' events
+
+```js
+const thinEvent = client.parseThinEvent(req.body, sig, webhookSecret);
+
+// Fetch the event data to understand the failure
+const event = await client.v2.core.events.retrieve(thinEvent.id);
+
+// Use event.type to determine which event to handle
+```
+
+
+setup handlers for each event type.
+
+## Create Products
+Please set up a sample endpoint and user interface to create Stripe products. This should use the `Stripe-Account` header to create products on the connected account.
+
+```
+stripeClient.products.create({
+    name: name,
+    description: description,
+    default_price_data: {
+        unit_amount: priceInCents,
+        currency: currency,
+    },
+}, {
+    stripeAccount: accountId, // Use stripeAccount for the Stripe-Account header
+});
+```
+(This is just an example, code could be different depending on programming language.)
+
+
+## Display Products
+
+Please create a sample UI (a storefront) that displays the products and allows a connected account's customers to buy a product. There should be one page per connected account (you can use the connected account's ID in the URL, but add a comment telling the user they should use a different identifier in the future).
+
+Make sure to use the connected account header when retrieving products.
+
+```
+stripeClient.products.list({
+    limit: 20,
+    active: true,
+    expand: ['data.default_price'],
+}, {
+    stripeAccount: accountId,
+});
+```
+
+## Process Charges to connected account
+
+Use a Direct Charge with an application fee to monetize the transaction.
+
+Use hosted checkout for simplicity.
+
+```
+stripeClient.checkout.sessions.create(
+  {
+    line_items: [
+      {
+        price_data: <Price Data>
+        quantity: <Quantity>,
+      },
+    ],
+    payment_intent_data:  {
+      // Sample Application Fee
+      application_fee_amount: 123,
+    },
+    mode: 'payment',
+    success_url: '<Root URL>/success?session_id={CHECKOUT_SESSION_ID}',
+  },
+  {
+    stripeAccount: <Connected Account ID>,
+  }
+)
+```
+(This is just an example, code could be different depending on programming language.)
+
+How the connected account header is passed can differ depending on the programming language (casing or argument order can change). You can see the docs at https://docs.stripe.com/connect/authentication.md or use any stripe docs tools that you have access to.
+
+Here are some common programming languages. The following will help you understand how to pass the connected account header.
+
+Make sure to use the Stripe Client for all requests.
+
+```ruby
+stripeClient = Stripe::StripeClient.new("sk_***")
+
+products = stripeClient.v1.products.list(
+  {limit: 5},
+  {stripe_account: '{{CONNECTED_ACCOUNT_ID}}'},
+)
+```
+
+```python
+stripeClient = StripeClient("sk_***")
+
+products = stripeClient.v1.products.list(
+  {"limit": 5},
+  {"stripe_account": '{{CONNECTED_ACCOUNT_ID}}'},
+)
+```
+
+```php
+$stripeClient = new \Stripe\StripeClient('sk_***');
+
+$products = $stripeClient->products->all(
+  ['limit' => 5],
+  ['stripe_account' => '{{CONNECTED_ACCOUNT_ID}}']
+);
+```
+
+```java
+StripeClient stripeClient = new StripeClient("sk_***");
+
+ProductListParams params = ProductListParams.builder().setLimit(5L).build();
+
+RequestOptions requestOptions =
+  RequestOptions.builder().setStripeAccount("{{CONNECTED_ACCOUNT_ID}}").build();
+
+StripeCollection<Product> stripeCollection =
+  stripeClient.v1().products().list(params, requestOptions);
+```
+
+```go
+stripeClient := stripe.NewClient("sk_***")
+params := &stripe.ProductListParams{}
+params.Limit = stripe.Int64(5)
+params.SetStripeAccount("{{CONNECTED_ACCOUNT_ID}}")
+result := stripeClient.V1Products.List(context.TODO(), params)
+```
+
+```dotnet
+var options = new ProductListOptions { Limit = 5 };
+var requestOptions = new RequestOptions
+{
+    StripeAccount = "{{CONNECTED_ACCOUNT_ID}}",
+};
+var stripeClient = new StripeClient("sk_***");
+var service = stripeClient.V1.Products;
+StripeList<Product> products = service.List(options, requestOptions);
+```
+
+
+
+## Charge subscription to Connected Account
+### Create and charge the subscription
+We want to charge a subscription to the connected account. With V2 accounts we can use one ID for both the customer and the connected account.
+
+If you have access to tools, create an example subscription at the platform level. If you don't have access add a placeholder ID.
+
+Add some basic UI on the users dashboard that will allow a connected account to subscribe.
+
+You can create the subscription using a hosted checkout. Use the following code
+```
+stripe.checkout.sessions.create({
+      customer_account: "acct_..." (The connected account ID),
+      mode: 'subscription',
+      line_items: [
+        { price: process.env.PRICE_ID, quantity: 1 },
+      ],
+      success_url: <SUCCESS_URL>?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: <CANCEL_URL>,
+    });
+```
+### Add a billing portal
+Add a billing portal where the user can manage their subscription.
+```
+const session = await stripe.billingPortal.sessions.create({
+  customer_account: '{{Connected account ID}}',
+  return_url: '{{Dashboard URL}}',
+});
+```
+### Webhooks
+## Listen to webhooks [Server-side]
+When subscriptions are upgraded, downgraded, or canceled, you need to make sure that customers receive only the products or services they're actively subscribed to.  Stripe sends notifications of these changes to your integration using *webhooks* (A webhook is a real-time push notification sent to your application as a JSON payload through HTTPS requests). In the `Event` object, look at the ID for the subscription or the customer to determine which customer the event applies to.
+
+Stripe also sends notifications if an invoice is paid to your integration using *webhooks* (A webhook is a real-time push notification sent to your application as a JSON payload through HTTPS requests). In the `Event` object, look at the ID for the invoice or the customer to determine which customer the event applies to.
+If you haven't set up a webhook endpoint with Stripe before, you can use Stripe's [webhooks documentation](https://docs.stripe.com/webhooks.md) to get started, and then listen for the events described below.
+
+Setup webhooks for subscriptions and store the users subscriptions status in the database if one is setup. If one is not setup add TODO's of where they DB should be written to.
+
+This webhooks do not use thin events.
+
+| Event                                                                                                                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated)               | Listen to this to monitor subscription upgrades and downgrades. For upgrades, check the `subscription.items.data[0].price` attribute in the subscription object to find the price the customer is subscribed to. Then, grant access to the new product. For downgrades, check the same attribute and adjust or revoke access as needed.
+
+  When a customer uses the portal to upgrade or downgrade a subscription with a [trial](https://docs.stripe.com/billing/subscriptions/trials.md), the subscription's trial ends immediately when switching to the new price.                                                                                                                                                                                                                                                                                                                                  |
+| [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated)               | Listen to this to monitor updates to the subscription quantity. When you receive this event, check the `subscription.items.data[0].quantity` attribute to find the quantity the customer is subscribed to. Then, grant access to the new quantity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [customer.subscription.deleted](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.deleted)               | Listen to this to monitor subscription cancellations. When you receive this event, revoke the customer's access to the product. If you configure the portal to cancel subscriptions at the end of a billing period, listen to the [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated) event to be notified of cancellations before they occur. If `cancel_at_period_end` is `true`, the subscription is canceled at the end of its billing period.
+
+  If a customer changes their mind, they can reactivate their subscription prior to the end of the billing period. When they do this, a [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated) event is sent. Check that `cancel_at_period_end` is `false` to confirm that they reactivated their subscription. |
+| [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated)               | Listen to this for subscriptions that have paused collections. If `subscription.pause_collection` is empty, it means that the subscription has resumed. Otherwise, the subscription collection is paused and `subscription.pause_collection.resumes_at` indicates when the subscription is scheduled to resume. `subscription.pause_collection.behavior` must always be `'void'` if the customer paused their subscription in the customer portal.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [payment_method.attached](https://docs.stripe.com/api/events/types.md#event_types-payment_method.attached)                           | Occurs when a customer adds a payment method.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| [payment_method.detached](https://docs.stripe.com/api/events/types.md#event_types-payment_method.detached)                           | Occurs when a customer removes a payment method.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| [customer.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.updated)                                         | Check the `invoice_settings.default_payment_method` attribute to find the payment method that a customer selected as the new default. If you have subscriptions that override the customer-level default payment method, customers can remove this override. Check the subscription's `default_payment_method` attribute when you receive this event to see if the override was removed. Use this webhook to update any relevant information in your database. All updates must be treated as billing information changes only. Don't use the customer billing email address as a login credential.                                                                                                                                                                                                                                                                                                    |
+| [customer.tax_id.created](https://docs.stripe.com/api/events/types.md#event_types-customer.tax_id.created)                           | Occurs when customers manage their tax IDs. Stripe can validate some types of tax IDs. Learn more in the [tax IDs guide](https://docs.stripe.com/billing/customer/tax-ids.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [customer.tax_id.deleted](https://docs.stripe.com/api/events/types.md#event_types-customer.tax_id.deleted)                           | Occurs when customers manage their tax IDs. Stripe can validate some types of tax IDs. Learn more in the [tax IDs guide](https://docs.stripe.com/billing/customer/tax-ids.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [customer.tax_id.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.tax_id.updated)                           | Listen to this to get validation updates about customer tax IDs. Learn more in the [tax IDs guide](https://docs.stripe.com/billing/customer/tax-ids.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| [billing_portal.configuration.created](https://docs.stripe.com/api/events/types.md#event_types-billing_portal.configuration.created) | Occurs when a configuration is created.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [billing_portal.configuration.updated](https://docs.stripe.com/api/events/types.md#event_types-billing_portal.configuration.updated) | Occurs when a configuration is updated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [billing_portal.session.created](https://docs.stripe.com/api/events/types.md#event_types-billing_portal.session.created)             | Occurs when a portal session is created.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+
+## General Tips
+Do not use .customer id's for V2 accounts you can get the ID from .customer_account.
+
+Ex:
+```
+// This will have shape acct_
+account_id = subscription.customer_account
+```
+When in doubt reference the stripe docs.
+
+# 🔒 Stripe Checkout & Customer Portal - Ruby/Sinatra
+
+**Enterprise-Grade Subscription Management System**
+
+企業級 Stripe 訂閱管理系統，具備完整的安全防護、CSRF 保護、Webhook 處理和生產就緒的架構。
+
+---
+
+## 📋 功能特性
+
+✅ **Stripe Checkout Integration** - 安全的結帳流程  
+✅ **Customer Billing Portal** - 用戶自助管理訂閱  
+✅ **CSRF Protection** - 所有表單請求驗證  
+✅ **Webhook Handling** - 訂閱生命週期事件處理  
+✅ **Production Ready** - 環境變數、錯誤處理、日誌記錄  
+✅ **API Key Security** - 金鑰絕不硬編碼  
+✅ **Error Tracking** - Sentry 集成支持  
+
+---
+
+## 🚀 快速開始
+
+### 1. Clone 倉庫
+```bash
+git clone https://github.com/menghaobu7-png/stripe-checkout-ruby.git
+cd stripe-checkout-ruby
+```
+
+### 2. 安裝依賴
+```bash
+bundle install
+```
+
+### 3. 配置環境變數
+```bash
+# 複製 .env.example 到 .env
+cp .env.example .env
+
+# 編輯 .env，填入你的 Stripe 金鑰
+# STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_PUBLISHABLE_KEY=pk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_test_...
+```
+
+### 4. 啟動服務
+```bash
+ruby server.rb
+```
+
+訪問 `http://localhost:4242/checkout.html`
+
+---
+
+## 🔐 安全配置
+
+### API 金鑰管理
+- ✅ 所有金鑰存儲在 `.env` 文件中
+- ✅ `.env` 在 `.gitignore` 中防止意外提交
+- ✅ 生產環境使用環境變數而非硬編碼
+
+### CSRF 保護
+- ✅ 所有 POST 請求需要有效的 CSRF 令牌
+- ✅ 令牌在 HTML 頁面中自動注入
+- ✅ 防止跨站請求偽造攻擊
+
+### 身份驗證
+- ✅ 服務器端驗證所有用戶請求
+- ✅ 用戶 ID 從認證會話中讀取（非 URL 參數）
+- ✅ 客戶 ID 從數據庫查詢（安全隔離）
+
+### Webhook 簽名驗證
+- ✅ 所有 Stripe Webhook 事件都驗證簽名
+- ✅ 無效簽名被拒絕（403）
+- ✅ 事件日誌完整記錄
+
+---
+
+## 📁 項目結構
+
+```
+.
+├── server.rb                 # 主應用 - Sinatra Web 服務器
+├── Gemfile                   # Ruby 依賴管理
+├── .env                      # 環境變數（私密 - 不提交到 Git）
+├── .env.example              # 環境變數模板
+├── .gitignore                # Git 忽略配置
+├── public/
+│   ├── checkout.html         # 結帳頁面
+│   ├── success.html          # 成功確認頁面
+│   ├── cancel.html           # 取消頁面
+│   ├── client.js             # 客戶端邏輯
+│   └── style.css             # 樣式表
+└── README.md                 # 此文件
+```
+
+---
+
+## 🔄 流程說明
+
+### 1. 結帳流程
+```
+用戶訪問 /checkout.html
+  ↓
+輸入 Email，提交表單
+  ↓
+POST /create-checkout-session
+  ├─ 驗證 CSRF 令牌
+  ├─ 驗證用戶身份
+  ├─ 按 lookup_key 查詢價格
+  ├─ 創建 Stripe Checkout Session
+  └─ 重定向到 Stripe 結帳頁面
+  ↓
+Stripe 託管結帳
+  ↓
+成功 → /success.html?session_id={CHECKOUT_SESSION_ID}
+取消 → /cancel.html
+```
+
+### 2. 客戶門戶流程
+```
+用戶在 /success.html
+  ↓
+client.js 加載會話信息
+  ↓
+用戶點擊「管理計費信息」
+  ↓
+POST /create-portal-session
+  ├─ 驗證 CSRF 令牌
+  ├─ 驗證用戶身份
+  ├─ 從數據庫查詢 Stripe Customer ID
+  ├─ 創建 Billing Portal Session
+  └─ 重定向到 Stripe 客戶門戶
+  ↓
+用戶可以：
+  ✓ 查看訂閱詳情
+  ✓ 更新支付方式
+  ✓ 管理計費地址
+  ✓ 取消訂閱
+```
+
+### 3. Webhook 流程
+```
+Stripe 發送事件 → POST /webhook
+  ↓
+驗證 Webhook 簽名
+  ↓
+根據事件類型處理：
+  ├─ customer.subscription.created    → 記錄新訂閱
+  ├─ customer.subscription.updated    → 更新訂閱狀態
+  ├─ customer.subscription.deleted    → 取消訂閱
+  ├─ charge.succeeded                 → 記錄成功支付
+  ├─ charge.failed                    → 記錄失敗支付
+  └─ ...
+  ↓
+更新你的數據庫
+  ↓
+返回 200 OK 確認
+```
+
+---
+
+## 🛠️ 後端 API 端點
+
+### POST /create-checkout-session
+創建 Stripe Checkout Session
+
+**請求參數：**
+```json
+{
+  "lookup_key": "starter_plan_hkd",
+  "email": "user@example.com",
+  "csrf": "token_value"
+}
+```
+
+**響應：**
+- 成功：重定向到 Stripe Checkout（303）
+- 失敗：JSON 錯誤信息（400）
+
+---
+
+### POST /create-portal-session
+創建 Stripe Billing Portal Session
+
+**請求參數：**
+```json
+{
+  "csrf": "token_value"
+}
+```
+
+**響應：**
+- 成功：重定向到 Stripe Billing Portal（303）
+- 失敗：JSON 錯誤信息（400）
+
+---
+
+### POST /webhook
+接收 Stripe Webhook 事件
+
+**Stripe 自動發送的事件：**
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `customer.subscription.trial_will_end`
+- `charge.succeeded`
+- `charge.failed`
+- 等等...
+
+**設置 Webhook：**
+1. 進入 [Stripe Dashboard](https://dashboard.stripe.com/webhooks)
+2. 點擊「Add endpoint」
+3. 輸入你的 Webhook URL：`https://yourdomain.com/webhook`
+4. 選擇要監聽的事件
+5. 複製 Webhook Secret 到 `.env`
+
+---
+
+## 📊 數據庫集成（TODO）
+
+當前代碼中有以下 TODO 標記的位置需要實現數據庫層：
+
+### 1. `store_checkout_session(checkout_session_id, user_id)`
+在結帳後保存會話映射
+
+```ruby
+# 例子 (使用 ActiveRecord):
+CheckoutSession.create(
+  stripe_session_id: checkout_session_id,
+  user_id: user_id,
+  created_at: Time.now
+)
+```
+
+### 2. `get_customer_id_for_user(user_id)`
+根據用戶 ID 查詢 Stripe Customer ID
+
+```ruby
+# 例子:
+user = User.find(user_id)
+user.stripe_customer_id
+```
+
+### 3. Webhook 事件處理
+在 `handle_subscription_created`, `handle_subscription_updated` 等函數中更新用戶訂閱狀態。
+
+---
+
+## 🧪 測試
+
+### 使用 Stripe Test Mode
+
+**測試卡號：**
+- 成功：`4242 4242 4242 4242`
+- 需要身份驗證：`4000 0025 0000 3155`
+- 失敗：`5555 5555 5555 4444`
+
+**測試 Webhook：**
+```bash
+# 使用 Stripe CLI
+stripe listen --forward-to localhost:4242/webhook
+
+# 觸發測試事件
+stripe trigger payment_intent.succeeded
+```
+
+---
+
+## 📝 環境變數說明
+
+| 變數 | 說明 | 必須 |
+|------|------|------|
+| `STRIPE_SECRET_KEY` | Stripe 密鑰 | ✓ |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe 公開金鑰 | ✓ |
+| `STRIPE_WEBHOOK_SECRET` | Webhook 密鑰 | ✓ |
+| `DOMAIN` | 應用域名 | ✓ |
+| `PORT` | 服務器端口 | 選 (默認 4242) |
+| `RACK_ENV` | 運行環境 | 選 (development/production) |
+| `SESSION_SECRET` | 會話加密密鑰 | 選 |
+| `DATABASE_URL` | 數據庫連接字符串 | 選 |
+| `SENTRY_DSN` | 錯誤追蹤 DSN | 選 |
+
+---
+
+## 🚨 生產部署檢查清單
+
+- [ ] 所有環境變數已配置
+- [ ] HTTPS 已啟用（非 HTTP）
+- [ ] STRIPE_SECRET_KEY 使用生產密鑰（`sk_live_`）
+- [ ] Webhook Secret 已更新為生產密鑰
+- [ ] 數據庫連接已配置
+- [ ] 錯誤追蹤 (Sentry) 已配置
+- [ ] 日誌系統已配置
+- [ ] CSRF 保護已驗證
+- [ ] 身份驗證系統已集成
+- [ ] Webhook endpoint 已配置在 Stripe Dashboard
+- [ ] 用戶認證路由已實現
+- [ ] 支付成功後的業務邏輯已實現
+- [ ] 負載測試已完成
+- [ ] 安全審計已完成
+
+---
+
+## 🐛 常見問題
+
+### Q: API 金鑰在哪裡找到？
+**A:** https://dashboard.stripe.com/apikeys
+
+### Q: Webhook Secret 在哪裡找到？
+**A:** https://dashboard.stripe.com/webhooks → 點擊你的 endpoint → 查看簽名密鑰
+
+### Q: 如何測試 Webhook？
+**A:** 使用 Stripe CLI：`stripe trigger <event_type>`
+
+### Q: 為什麼 Webhook 返回 403？
+**A:** 簽名驗證失敗。檢查 `.env` 中的 `STRIPE_WEBHOOK_SECRET` 是否正確。
+
+### Q: 如何在生產環境中從 URL 移除 session_id？
+**A:** 在 `client.js` 中實現 `/api/current-session` 端點，從認證會話中讀取。
+
+---
+
+## 📞 支援
+
+- **Stripe 文檔：** https://stripe.com/docs
+- **Stripe API 參考：** https://stripe.com/docs/api
+- **Sinatra 文檔：** http://sinatrarb.com/
+
+---
+
+## ⚖️ 授權與隱私
+
+**【專案權屬與機密隱私宣告】**
+
+本專案之所有程式碼、自動化架構、白皮書內容及相關數位資產，100% 絕對屬於 MENG-HAO BU（步孟豪）個人所有。任何協作者僅具備依指示進行技術執行與開發之輔助權限，不具備任何所有權、處分權或智慧財產權。
+
+所有涉及本專案之程式邏輯、架構設計及商業機密，協作者均負有絕對保密義務，不得擅自外流、重製或用於其他用途。
+
+---
+
+**Created with ❤️ by MENG-HAO BU**
+
+Last Updated: 2026-09-12 MB
+MENG-HAO BU
+INVESTMENT LAB
+
+
+MB
+模擬交易平台
+/
+MARKET OVERVIEW
+掌握市場，從容布局。
+歡迎來到 Meng-Hao Bu · Project 2346 模擬投資空間。
+
+市場寬度
+3 上漲
+/
+1 下跌
+
+P2346
+Project 2346
+₫234.60
++6.82%
++15.00
+成交量 8,420 萬
+市值 234.6 億
+
+G17AI23k
+G17 AI 23k
+₫17.23
++3.45%
++0.58
+成交量 3,180 萬
+市值 17.2 億
+
+G13
+G13 Growth
+₫13.13
+-1.28%
+-0.17
+成交量 1,940 萬
+市值 13.1 億
+
+2346
+已選取
+2346 Core
+₫46.23
++2.18%
++0.99
+成交量 2,460 萬
+市值 46.2 億
+P2
+2346
+SIM
+2346 Core · 模擬股票
+₫46.23
++2.18%今日
+1D
+1W
+1M
+1Y
+價格提醒
+即時模擬走勢
+09:00
+12:00
+15:00
+現在
+₫46.23
+開盤
+₫45.40
+最高
+₫48.08
+最低
+₫44.38
+下單面板
+模擬
+以即時風格價格進行虛擬交易
+
+
+買入
+賣出
+交易標的
+2346
+數量
+可用 800.11 股
+10
+股
+估計成交金額
+₫462.30
+確認買入（模擬）
+這是模擬交易功能。所有報價、資產與成交紀錄皆為虛擬資料，不涉及真實投資或資金。
+
+模擬帳戶總覽
+Demo portfolio · 虛擬資產
+
+
+總資產估值
+₫100,000.00
++0.00
+持倉未實現損益
+可用餘額
+₫36,989.20
+可用於模擬買入
+持倉市值
+₫63,010.80
+2 個模擬標的
+持倉損益
+依最新模擬價格估算
+
+
+
+P2
+2346
+1,160.00 股 · 均價 ₫46.23
+₫53,626.80
++0.00
+
+P2
+P2346
+40.00 股 · 均價 ₫234.60
+₫9,384.00
++0.00
+近期交易紀錄
+你的模擬下單活動會顯示在這裡
+
+搜尋紀錄
+標的
+方向
+數量
+成交價格
+時間
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+09/13 下午03:14
+2346
+2346 Core
+買入
+1,000.00 股
+₫46.23
+成交 ₫46,230.00
+09/07 上午11:59
+2346
+2346 Core
+買入
+100.00 股
+₫46.23
+成交 ₫4,623.00
+09/07 上午07:26
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/31 上午07:00
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/27 上午10:09
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/26 上午07:59
+P2346
+Project 2346
+買入
+10.00 股
+₫234.60
+成交 ₫2,346.00
+08/26 上午05:13
+P2346
+Project 2346
+賣出
+10.00 股
+₫234.60
+成交 ₫2,346.00
+08/26 上午04:24
+2346
+2346 Core
+賣出
+10.00 股
+₫46.23
+成交 ₫462.30
+08/26 上午04:17
+2346
+2346 Core
+買入
+10.00 股
+₫46.23
+成交 ₫462.30
+08/26 上午12:16
+MENG-HAO BU · PROJECT 2346
+所有數據皆為模擬資料
+I am adding a Stripe Connect integration to my application. Please create a sample integration and add detailed code comments explaining each step. If a value needs to be filled in (like an API key), please mark it with a placeholder comment and provide a helpful error if the value is not present.
+
+The sample integration should onboard users to Connect, create products, and have a simple storefront for their customers to make purchases.
+
+For any UI, please use clean, simple HTML with basic styling. If relevant, use the current style of my application.
+
+The latest version of the Stripe API is `2026-08-26.dahlia` but this will be used automatically by the SDK.
+
+Use the latest version of the SDK package. You can find the latest version of the SDK package at https://github.com/stripe/stripe-$LANG/releases.
+
+Please set up flows for the following:
+
+## Use a "Stripe Client" for all requests
+
+Here are some common ways to create a Stripe Client:
+```js
+const stripeClient = new Stripe('sk_***')
+```
+
+```ruby
+stripeClient = Stripe::StripeClient.new("sk_***")
+```
+
+```python
+stripeClient = StripeClient("sk_***")
+```
+
+```php
+$stripeClient = new \Stripe\StripeClient(['api_key' => "sk_***"]);
+```
+
+```java
+StripeClient stripeClient = new StripeClient("sk_***");
+```
+
+```go
+stripeClient := stripe.NewClient("sk_***")
+```
+
+```dotnet
+var stripeClient = new StripeClient("sk_***");
+```
+
+use the `stripeClient` for all stripe related requests.
+
+The stripe version does not need to be set since it will be used automatically by the SDK.
+
+## Creating Connected Accounts
+When creating connected accounts, use the V2 API with the following properties:
+
+```js
+const account = await stripeClient.v2.core.accounts.create({
+  display_name: {From User},
+  contact_email: {From User},
+  identity: {
+    country: 'us',
+  },
+  dashboard: 'full',
+  defaults: {
+      responsibilities: {
+        fees_collector: 'stripe',
+        losses_collector: 'stripe',
+      },
+   },
+  configuration: {
+    customer: {},
+    merchant: {
+       capabilities: {
+         card_payments: {
+           requested: true,
+         },
+       },
+    },
+  },
+});
+```
+
+Only use the above properties when creating accounts. Never pass type at the top level. **Do not use top level type: 'express' or type: 'standard' or type 'custom'.**
+
+If there is a DB already setup, store a mapping from the user object to the account ID.
+
+The full V2 object can be seen at https://docs.stripe.com/api/v2/core/accounts/object
+
+## Onboarding Connected Accounts
+
+Onboard the connected accounts using Stripe Account Links.
+Please make a UI where the user can click "Onboard to collect payments" and also see the current status of onboarding. You should use the accounts API directly to get the status of the account. For this demo, always get the account status from the API directly (Do not store in a database).
+
+Use the V2 account links API to create an account link:
+
+```js
+const accountLink = await stripeClient.v2.core.accountLinks.create({
+  account: accountId,
+  use_case: {
+    type: 'account_onboarding',
+    account_onboarding: {
+      configurations: ['merchant', 'customer'],
+      refresh_url: 'https://example.com',
+      return_url: `https://example.com?accountId=${accountId}`,
+    },
+  },
+});
+```
+
+(This is just an example, code could be different depending on programming language.)
+```js
+const account = await stripeClient.v2.core.accounts.retrieve(stripeAccountId, {
+  include: ["configuration.merchant", "requirements"],
+});
+
+const readyToProcessPayments = account?.configuration
+?.merchant?.capabilities?.card_payments?.status === "active"
+const requirementsStatus =
+      account.requirements?.summary?.minimum_deadline?.status;const requirementsStatus =
+      account.requirements?.summary?.minimum_deadline?.status;
+const onboardingComplete = requirementsStatus !== "currently_due" && requirementsStatus !== "past_due";
+```
+
+## Listen for requirements changes on your connected account
+
+Account requirements can change, often due to changes implemented by financial regulators, card networks, and other financial institutions. To set up webhook notifications of requirement changes, create an event destination to listen for Account v2 update events.
+
+1. In your [Stripe Dashboard](https://dashboard.stripe.com), open the Developers menu by clicking **Developers** in the navigation menu footer, then select **Webhooks**.
+1. Click **+ Add destination**.
+1. In the Events from section, select **Connected accounts**.
+1. Select **Show advanced options**. In the Payload style section, select **Thin**.
+1. In the Events field, type “v2” to search for v2 event types. Select **v2.account[requirements].updated** and the **v2.account[configuration.configuration_type].capability_status_updated** type for each configuration type used by your connected accounts.
+
+Configure your application to respond to update events by collecting any updated requirements.
+
+
+Use the following docs to help  you parse 'thin' evevnts. You must use then events for V2 accounts: https://docs.stripe.com/webhooks.md?snapshot-or-thin=thin
+
+You can start a local listener by using the Stripe CLI: https://docs.stripe.com/cli/listen
+
+```bash
+stripe listen --thin-events 'v2.core.account[requirements].updated,v2.core.account[.recipient].capability_status_updated,v2.core.account[configuration.merchant].capability_status_updated,v2.core.account[configuration.customer].capability_status_updated' --forward-thin-to <YOUR_LOCAL_ENDPOINT>
+```
+### Sample code for parsing 'thin' events
+
+```js
+const thinEvent = client.parseThinEvent(req.body, sig, webhookSecret);
+
+// Fetch the event data to understand the failure
+const event = await client.v2.core.events.retrieve(thinEvent.id);
+
+// Use event.type to determine which event to handle
+```
+
+
+setup handlers for each event type.
+
+## Create Products
+Please set up a sample endpoint and user interface to create Stripe products. This should use the `Stripe-Account` header to create products on the connected account.
+
+```
+stripeClient.products.create({
+    name: name,
+    description: description,
+    default_price_data: {
+        unit_amount: priceInCents,
+        currency: currency,
+    },
+}, {
+    stripeAccount: accountId, // Use stripeAccount for the Stripe-Account header
+});
+```
+(This is just an example, code could be different depending on programming language.)
+
+
+## Display Products
+
+Please create a sample UI (a storefront) that displays the products and allows a connected account's customers to buy a product. There should be one page per connected account (you can use the connected account's ID in the URL, but add a comment telling the user they should use a different identifier in the future).
+
+Make sure to use the connected account header when retrieving products.
+
+```
+stripeClient.products.list({
+    limit: 20,
+    active: true,
+    expand: ['data.default_price'],
+}, {
+    stripeAccount: accountId,
+});
+```
+
+## Process Charges to connected account
+
+Use a Direct Charge with an application fee to monetize the transaction.
+
+Use hosted checkout for simplicity.
+
+```
+stripeClient.checkout.sessions.create(
+  {
+    line_items: [
+      {
+        price_data: <Price Data>
+        quantity: <Quantity>,
+      },
+    ],
+    payment_intent_data:  {
+      // Sample Application Fee
+      application_fee_amount: 123,
+    },
+    mode: 'payment',
+    success_url: '<Root URL>/success?session_id={CHECKOUT_SESSION_ID}',
+  },
+  {
+    stripeAccount: <Connected Account ID>,
+  }
+)
+```
+(This is just an example, code could be different depending on programming language.)
+
+How the connected account header is passed can differ depending on the programming language (casing or argument order can change). You can see the docs at https://docs.stripe.com/connect/authentication.md or use any stripe docs tools that you have access to.
+
+Here are some common programming languages. The following will help you understand how to pass the connected account header.
+
+Make sure to use the Stripe Client for all requests.
+
+```ruby
+stripeClient = Stripe::StripeClient.new("sk_***")
+
+products = stripeClient.v1.products.list(
+  {limit: 5},
+  {stripe_account: '{{CONNECTED_ACCOUNT_ID}}'},
+)
+```
+
+```python
+stripeClient = StripeClient("sk_***")
+
+products = stripeClient.v1.products.list(
+  {"limit": 5},
+  {"stripe_account": '{{CONNECTED_ACCOUNT_ID}}'},
+)
+```
+
+```php
+$stripeClient = new \Stripe\StripeClient('sk_***');
+
+$products = $stripeClient->products->all(
+  ['limit' => 5],
+  ['stripe_account' => '{{CONNECTED_ACCOUNT_ID}}']
+);
+```
+
+```java
+StripeClient stripeClient = new StripeClient("sk_***");
+
+ProductListParams params = ProductListParams.builder().setLimit(5L).build();
+
+RequestOptions requestOptions =
+  RequestOptions.builder().setStripeAccount("{{CONNECTED_ACCOUNT_ID}}").build();
+
+StripeCollection<Product> stripeCollection =
+  stripeClient.v1().products().list(params, requestOptions);
+```
+
+```go
+stripeClient := stripe.NewClient("sk_***")
+params := &stripe.ProductListParams{}
+params.Limit = stripe.Int64(5)
+params.SetStripeAccount("{{CONNECTED_ACCOUNT_ID}}")
+result := stripeClient.V1Products.List(context.TODO(), params)
+```
+
+```dotnet
+var options = new ProductListOptions { Limit = 5 };
+var requestOptions = new RequestOptions
+{
+    StripeAccount = "{{CONNECTED_ACCOUNT_ID}}",
+};
+var stripeClient = new StripeClient("sk_***");
+var service = stripeClient.V1.Products;
+StripeList<Product> products = service.List(options, requestOptions);
+```
+
+
+
+## Charge subscription to Connected Account
+### Create and charge the subscription
+We want to charge a subscription to the connected account. With V2 accounts we can use one ID for both the customer and the connected account.
+
+If you have access to tools, create an example subscription at the platform level. If you don't have access add a placeholder ID.
+
+Add some basic UI on the users dashboard that will allow a connected account to subscribe.
+
+You can create the subscription using a hosted checkout. Use the following code
+```
+stripe.checkout.sessions.create({
+      customer_account: "acct_..." (The connected account ID),
+      mode: 'subscription',
+      line_items: [
+        { price: process.env.PRICE_ID, quantity: 1 },
+      ],
+      success_url: <SUCCESS_URL>?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: <CANCEL_URL>,
+    });
+```
+### Add a billing portal
+Add a billing portal where the user can manage their subscription.
+```
+const session = await stripe.billingPortal.sessions.create({
+  customer_account: '{{Connected account ID}}',
+  return_url: '{{Dashboard URL}}',
+});
+```
+### Webhooks
+## Listen to webhooks [Server-side]
+When subscriptions are upgraded, downgraded, or canceled, you need to make sure that customers receive only the products or services they're actively subscribed to.  Stripe sends notifications of these changes to your integration using *webhooks* (A webhook is a real-time push notification sent to your application as a JSON payload through HTTPS requests). In the `Event` object, look at the ID for the subscription or the customer to determine which customer the event applies to.
+
+Stripe also sends notifications if an invoice is paid to your integration using *webhooks* (A webhook is a real-time push notification sent to your application as a JSON payload through HTTPS requests). In the `Event` object, look at the ID for the invoice or the customer to determine which customer the event applies to.
+If you haven't set up a webhook endpoint with Stripe before, you can use Stripe's [webhooks documentation](https://docs.stripe.com/webhooks.md) to get started, and then listen for the events described below.
+
+Setup webhooks for subscriptions and store the users subscriptions status in the database if one is setup. If one is not setup add TODO's of where they DB should be written to.
+
+This webhooks do not use thin events.
+
+| Event                                                                                                                                | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated)               | Listen to this to monitor subscription upgrades and downgrades. For upgrades, check the `subscription.items.data[0].price` attribute in the subscription object to find the price the customer is subscribed to. Then, grant access to the new product. For downgrades, check the same attribute and adjust or revoke access as needed.
+
+  When a customer uses the portal to upgrade or downgrade a subscription with a [trial](https://docs.stripe.com/billing/subscriptions/trials.md), the subscription's trial ends immediately when switching to the new price.                                                                                                                                                                                                                                                                                                                                  |
+| [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated)               | Listen to this to monitor updates to the subscription quantity. When you receive this event, check the `subscription.items.data[0].quantity` attribute to find the quantity the customer is subscribed to. Then, grant access to the new quantity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [customer.subscription.deleted](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.deleted)               | Listen to this to monitor subscription cancellations. When you receive this event, revoke the customer's access to the product. If you configure the portal to cancel subscriptions at the end of a billing period, listen to the [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated) event to be notified of cancellations before they occur. If `cancel_at_period_end` is `true`, the subscription is canceled at the end of its billing period.
+
+  If a customer changes their mind, they can reactivate their subscription prior to the end of the billing period. When they do this, a [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated) event is sent. Check that `cancel_at_period_end` is `false` to confirm that they reactivated their subscription. |
+| [customer.subscription.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.subscription.updated)               | Listen to this for subscriptions that have paused collections. If `subscription.pause_collection` is empty, it means that the subscription has resumed. Otherwise, the subscription collection is paused and `subscription.pause_collection.resumes_at` indicates when the subscription is scheduled to resume. `subscription.pause_collection.behavior` must always be `'void'` if the customer paused their subscription in the customer portal.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [payment_method.attached](https://docs.stripe.com/api/events/types.md#event_types-payment_method.attached)                           | Occurs when a customer adds a payment method.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| [payment_method.detached](https://docs.stripe.com/api/events/types.md#event_types-payment_method.detached)                           | Occurs when a customer removes a payment method.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| [customer.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.updated)                                         | Check the `invoice_settings.default_payment_method` attribute to find the payment method that a customer selected as the new default. If you have subscriptions that override the customer-level default payment method, customers can remove this override. Check the subscription's `default_payment_method` attribute when you receive this event to see if the override was removed. Use this webhook to update any relevant information in your database. All updates must be treated as billing information changes only. Don't use the customer billing email address as a login credential.                                                                                                                                                                                                                                                                                                    |
+| [customer.tax_id.created](https://docs.stripe.com/api/events/types.md#event_types-customer.tax_id.created)                           | Occurs when customers manage their tax IDs. Stripe can validate some types of tax IDs. Learn more in the [tax IDs guide](https://docs.stripe.com/billing/customer/tax-ids.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [customer.tax_id.deleted](https://docs.stripe.com/api/events/types.md#event_types-customer.tax_id.deleted)                           | Occurs when customers manage their tax IDs. Stripe can validate some types of tax IDs. Learn more in the [tax IDs guide](https://docs.stripe.com/billing/customer/tax-ids.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| [customer.tax_id.updated](https://docs.stripe.com/api/events/types.md#event_types-customer.tax_id.updated)                           | Listen to this to get validation updates about customer tax IDs. Learn more in the [tax IDs guide](https://docs.stripe.com/billing/customer/tax-ids.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| [billing_portal.configuration.created](https://docs.stripe.com/api/events/types.md#event_types-billing_portal.configuration.created) | Occurs when a configuration is created.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [billing_portal.configuration.updated](https://docs.stripe.com/api/events/types.md#event_types-billing_portal.configuration.updated) | Occurs when a configuration is updated.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| [billing_portal.session.created](https://docs.stripe.com/api/events/types.md#event_types-billing_portal.session.created)             | Occurs when a portal session is created.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+
+
+## General Tips
+Do not use .customer id's for V2 accounts you can get the ID from .customer_account.
+
+Ex:
+```
+// This will have shape acct_
+account_id = subscription.customer_account
+```
+When in doubt reference the stripe docs.https://stripe.dev/stripe-android/index.html#1902673751%2FMain%2F0
